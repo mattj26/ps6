@@ -15,24 +15,41 @@ Problem 1: Write a function has_cycle that returns whether a mutable
 list has a cycle. You may want a recursive helper function. Don't
 worry about space usage.
 ......................................................................*)
-let has_cycle (lst : 'a mlist) : bool =
-  failwith "has_cycle not implemented"
 
+let rec list_iter (vis : 'a mlist ref list)
+              (r : 'a mlist ref)
+              (fNil : 'a mlist ref list -> 'b)
+              (fCons : 'a -> 'a mlist ref -> 'a mlist ref list -> 'b)
+            : 'b =
+  match !r with
+  | Nil -> fNil vis
+  | Cons (x, y) ->
+      if List.memq r vis
+      then fCons x r vis
+      else list_iter (r::vis) y fNil fCons
+
+let has_cycle (lst : 'a mlist) : bool =
+  list_iter [] (ref lst) (fun _ -> false) (fun _ _ _ -> true)
 (*......................................................................
 Problem 2: Write a function flatten that flattens a list (removes its
 cycles if it has any) destructively. Again, you may want a recursive
 helper function and you shouldn't worry about space.
 ......................................................................*)
-let flatten (lst : 'a mlist) : unit =
-  failwith "flatten not implemented"
+let flatten2 (lst : 'a mlist) : unit =
+  list_iter [] (ref lst) (fun _ -> ()) (fun x n _ -> n := Cons (x, ref Nil) )
 
 (*......................................................................
 Problem 3: Write mlength, which nondestructively finds the number of
 nodes in a mutable list that may have cycles.
 ......................................................................*)
 let mlength (lst : 'a mlist) : int =
-  failwith "mlength not implemented"
-                         
+  list_iter [] (ref lst) (fun ns -> List.length ns)
+  (fun _ _ ns -> (List.length ns) - 1 )
+
+
+
+
+
 (*======================================================================
 Time estimate
 
