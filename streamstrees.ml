@@ -42,9 +42,10 @@ the input stream. For example:
 # first 5 (average (to_float nats)) ;;
 - : float list = [0.5; 1.5; 2.5; 3.5; 4.5]
 ......................................................................*)
-  
-let average (s : float stream) : float stream =
-  failwith "average not implemented" ;;
+
+let rec average (s : float stream) : float stream =
+  let hd, tl = head s, tail s in
+  lazy (Cons ((hd +. head tl) /.  2.,  average tl))
 
 (*......................................................................
 Problem 6: Implementing Aitken's method
@@ -59,9 +60,14 @@ is Aitken's method. The formula is given in the problem set
 writeup. Write a function to apply this accelerator to a stream, and
 use it to generate approximations of pi.
 ......................................................................*)
-   
-let aitken (s: float stream) : float stream =
-  failwith "aitken not implemented" ;;
+let avg_pi_sums = average pi_sums
+
+
+let rec aitken (s: float stream) : float stream =
+  let n2 = head s in
+  let n1 = head (tail s) in
+  let n = head (tail (tail s)) in
+  lazy (Cons (n -. (n -. n1) ** 2. /. (n -. 2. *. n1 +. n2), aitken (tail s)))
 
 (*......................................................................
 Problem 7: Testing the acceleration
@@ -70,17 +76,27 @@ Fill out the following table, recording how many steps are needed to
 get within different epsilons of pi.
 
     ---------------------------------------------------------
-    epsilon  |  pi_sums  |  averaged method  |  aitken method 
+    epsilon  |  pi_sums  |  averaged method  |  aitken method
     ---------------------------------------------------------
-    0.1      |           |                   |
+    0.1      |    19     |          2        |      0
     ---------------------------------------------------------
-    0.01     |           |                   |
+    0.01     |    199    |         9         |      2
     ---------------------------------------------------------
-    0.001    |           |                   |
+    0.001    |   1999    |         30        |      6
     ---------------------------------------------------------
-    0.0001   |           |                   |
+    0.0001   |   19999   |        99         |      15
     ---------------------------------------------------------
 ......................................................................*)
+
+let print_int_float (tup : int * float) : unit =
+  match tup with
+  | i, f -> Printf.printf "Steps taken: %i  ->Value: %f\n" i f
+
+let testing () =
+  let eps = [0.1; 0.01; 0.001; 0.0001] in
+  let ait = aitken pi_sums in
+  List.iter (fun e -> Printf.printf "Epsilon is %f" e;
+                      print_int_float (within e ait)) eps
 
 (*======================================================================
 Section 2.2 : Infinite trees
@@ -92,7 +108,7 @@ of one or more (lazy) child trees. Complete the implementation by
 writing print_depth, tmap, tmap2, and bfenumerate.  We recommend
 implementing them in that order.
 ......................................................................*)
-   
+
 type 'a treeval = Node of 'a * 'a tree list
  and 'a tree = 'a treeval Lazy.t ;;
 
@@ -200,7 +216,7 @@ with 0. For example:
 ......................................................................*)
 let rec tree_nats : int tree =
   lazy (failwith "tree_nats not implemented") ;;
-                                                 
+
 (*======================================================================
 Time estimate
 
