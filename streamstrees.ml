@@ -126,28 +126,42 @@ node t -- Returns the element of type 'a stored at the root node of
 tree t of type 'a tree.
 ......................................................................*)
 let node (t : 'a tree) : 'a =
-  failwith "node not implemented" ;;
+  let Node (v, _) = Lazy.force t in
+  v;;
 
 (*......................................................................
 children t -- Returns the list of children of the root node of tree t.
 ......................................................................*)
 let children (t : 'a tree) : 'a tree list =
-  failwith "children not implemented" ;;
+  let Node (_, chil) = Lazy.force t in
+  if List.length chil < 1
+  then raise Finite_tree
+  else chil
 
 (*......................................................................
 print_depth n indent t -- Prints a representation of the first n
 levels of the tree t indented indent spaces. You can see some examples
 of the intended output of print_depth below.
 ......................................................................*)
-let rec print_depth (n : int) (indent : int) (t : int tree) : unit =
-  failwith "print_depth not implemented" ;;
+let print_depth (num : int) (indent : int) (t : int tree) : unit =
+  let rec inner_depth (count : int) (t2 : int tree) : unit =
+      let n, c = node t2, children t2 in
+      let str = String.make (count * indent + count) ' ' in
+      print_endline (str ^ string_of_int n);
+      if count + 1 < num
+      then
+        List.iter (fun x -> inner_depth (count + 1) x) c
+      else
+        () in
+  inner_depth 0 t
 
 (*......................................................................
 tmap f t -- Returns a tree obtained by mapping the function f over
 each node in t.
 ......................................................................*)
 let rec tmap (f : 'a -> 'b) (t : 'a tree) : 'b tree =
-  failwith "tmap not implemented" ;;
+  lazy (Node (f (node t), List.map (tmap f) (children t)));;
+
 
 (*......................................................................
 tmap2 f t1 t2 -- Returns the tree obtained by applying the function f
@@ -157,7 +171,7 @@ to corresponding nodes in t1 and t2, which must have the same
 let rec tmap2 (f : 'a -> 'b -> 'c)
               (t1 : 'a tree) (t2 : 'b tree)
             : 'c tree =
-  failwith "tmap2 not implemented" ;;
+  lazy ( Node (f (node t1) (node t2), List.map2 (tmap2 f) (children t1) (children t2) ));;
 
 (*......................................................................
 bfenumerate tslist -- Returns a LazyStreams.stream of the nodes in the
@@ -167,7 +181,17 @@ forth. There is an example of bfenumerate being applied below.
 ......................................................................
  *)
 let rec bfenumerate (tslist : 'a tree list) : 'a stream =
-  failwith "bfenumerate not implemented" ;;
+  match tslist with
+  | [] -> raise Finite_tree
+  | _ ->
+      let nodes = List.fold_right (fun t l -> (node t)::l) tslist [] in
+      let children = List.fold_right (fun t l -> (children t) :: l) tslist []
+      |> List.concat in
+      let rec inner_enu (nds : 'a list) : 'a stream =
+        match nds with
+        | [] -> bfenumerate children
+        | hd::tl -> lazy (Cons (hd, inner_enu tl)) in
+      inner_enu nodes;;
 
 (* Now use your implementation to generate some interesting infinite
 trees.  Hint: Drawing a tree considering how the values change along
@@ -177,7 +201,7 @@ each branch will yield helpful intuition for the next problems. *)
 onest -- An infinite binary tree all of whose nodes hold the integer 1.
 ......................................................................*)
 let rec onest : int tree =
-  lazy (failwith "onest not implemented") ;;
+  lazy (Node (1, [onest; onest]))
 
 (*......................................................................
 levels n -- Returns an infinite binary tree where the value of each
@@ -195,7 +219,8 @@ argument n. For example:
 - : unit = ()
 ......................................................................*)
 let rec levels (n : int) : int tree =
-  failwith "levels not implemented" ;;
+  lazy (Node (n, [levels (n + 1); levels (n + 1)]))
+
 
 (*......................................................................
 Define an infinite binary tree tree_nats where the value of each node in
@@ -204,9 +229,13 @@ with 0. For example:
 
 # print_depth 2 0 tree_nats ;;
 0...
- 1...
-  3...
-  4...
+ 1...               1 -> 3,5
+  3...             3 -> 7, 9
+    7...
+    8...
+  4...          4 -> 8, 10
+    9...        2 -> 4, 6
+    10...
  2...
   5...
   6...
@@ -215,7 +244,7 @@ with 0. For example:
 - : int list = [0; 1; 2; 3; 4; 5; 6; 7; 8; 9]
 ......................................................................*)
 let rec tree_nats : int tree =
-  lazy (failwith "tree_nats not implemented") ;;
+   lazy (Node (0, [tmap (fun x -> x * 3 + 5) tree_nats; tmap (fun x -> x * 2 + 2) tree_nats]))
 
 (*======================================================================
 Time estimate
