@@ -1,9 +1,9 @@
-(* 
+(*
                          CS 51 Problem Set 6
                        Refs, Streams, and Music
                             Part 3: Music
                              Spring 2017
- *) 
+ *)
 
 module NLS = NativeLazyStreams ;;
 
@@ -20,7 +20,7 @@ type p = A | Bb | B | C | Db | D | Eb | E | F | Gb | G | Ab
 (* Pitches with octave *)
 type pitch = p * int
 
-(* Musical objects *)              
+(* Musical objects *)
 type obj =
     (* notes with a pitch, duration (float; 1.0 = a measure), and
        volume ([0...128]) *)
@@ -35,13 +35,13 @@ type event =
   | Tone of float * pitch * int
     (* stop playing the note with the given pitch after the given time
        (float) *)
-  | Stop of float * pitch               
+  | Stop of float * pitch
 
 (* p_to_int -- Convert pitches to an integer (half-step) representation *)
 let p_to_int (p: p) : int =
   match p with
   | C -> 0 | Db -> 1 | D -> 2 | Eb -> 3 | E -> 4 | F -> 5
-  | Gb -> 6 | G -> 7 | Ab -> 8 | A -> 9 | Bb -> 10 | B -> 11 
+  | Gb -> 6 | G -> 7 | Ab -> 8 | A -> 9 | Bb -> 10 | B -> 11
 
 (* int_to_p -- Convert integer half-step to pitch *)
 let int_to_p (n: int) : p =
@@ -62,7 +62,7 @@ let shift (by : float) (e : event) : event =
   | Tone (time, pit, vol) -> Tone (time +. by, pit, vol)
   | Stop (time, pit) -> Stop (time +. by, pit)
 
-(* shift_start -- Shift the start of a stream of events so that it 
+(* shift_start -- Shift the start of a stream of events so that it
    begins later *)
 let shift_start (by : float) (str : event NLS.stream)
               : event NLS.stream =
@@ -84,9 +84,9 @@ let int_to_hex (n : int) : string = Printf.sprintf "%02x" n
 (* output_hex -- Output a string on the specified output channel *)
 let rec output_hex (outchan : out_channel) (hex : string) : unit =
   let len = String.length hex in
-  if len = 0 then () else 
+  if len = 0 then () else
     (if len < 2 then raise InvalidHex
-     else (output_byte outchan (hex_to_int (String.sub hex 0 2))); 
+     else (output_byte outchan (hex_to_int (String.sub hex 0 2)));
      (output_hex outchan (String.sub hex 2 (len - 2))))
 
 (* some MIDI esoterica *)
@@ -101,7 +101,7 @@ let footer = "00FF2F00"
 let pitch_to_hex (pitch : pitch) : string =
   let (p, oct) = pitch in int_to_hex ((oct + 1) * 12 + (p_to_int p))
 
-(* time_to_hex -- Convert an amount of time to a string of its hex 
+(* time_to_hex -- Convert an amount of time to a string of its hex
    representation *)
 let time_to_hex (time : float) : string =
   let measure = ticks_per_q * 4 in
@@ -110,7 +110,7 @@ let time_to_hex (time : float) : string =
   else "8" ^ (string_of_int (itime / measure))
        ^ (Printf.sprintf "%02x" (itime mod measure))
 
-let rec insts (playing : (pitch * int) list) (pitch : pitch) 
+let rec insts (playing : (pitch * int) list) (pitch : pitch)
             : int * ((pitch * int) list) =
   match playing with
   | [] -> (0, [])
@@ -124,22 +124,22 @@ let rec insts (playing : (pitch * int) list) (pitch : pitch)
 let rec stream_to_hex (n : int) (str : event NLS.stream) : string =
   if n = 0 then ""
   else match Lazy.force str with
-       | NLS.Cons(Tone (t, pitch, vol), tl) -> 
+       | NLS.Cons(Tone (t, pitch, vol), tl) ->
           (time_to_hex t) ^ "90" ^ (pitch_to_hex pitch)
           ^ (int_to_hex vol) ^ (stream_to_hex (n - 1) tl)
        | NLS.Cons(Stop (t, pitch), tl) ->
           (time_to_hex t) ^ (pitch_to_hex pitch) ^ "00"
           ^ (stream_to_hex (n - 1) tl)
-              
+
 (* output_midi -- Writes the string representation of music to a midi
    file *)
 let output_midi (filename : string) (hex : string) : unit =
   let outchan = open_out_bin filename in
-  output_hex outchan header; 
-  output_binary_int outchan ((String.length hex) / 2 + 4); 
-  output_hex outchan hex; 
-  output_hex outchan footer; 
-  flush outchan; 
+  output_hex outchan header;
+  output_binary_int outchan ((String.length hex) / 2 + 4);
+  output_hex outchan hex;
+  output_hex outchan footer;
+  flush outchan;
   close_out outchan
 
 (*......................................................................
@@ -150,23 +150,48 @@ list but keep the original list around as lst. Both need to be recursive,
 since you will call both the inner and outer functions at some point.
 ......................................................................*)
 let rec list_to_stream (lst : obj list) : event NLS.stream =
-  let rec list_to_stream_rec nlst =
-    failwith "list_to_stream not implemented"
-  in list_to_stream_rec lst
+  let rec list_to_stream_rec (nlst: obj list) (rstTime : float) : event NLS.stream =
+    match nlst with
+    | [] -> list_to_stream lst
+    | hd::tl ->
+        match hd with
+        | Rest dur -> list_to_stream_rec tl (rstTime +. dur)
+        | Note (pt, dur, vol) ->
+            let tone = Tone (rstTime, pt, vol) in
+            let stop = Stop (dur, pt) in
+            lazy ( NLS.Cons (tone, lazy (NLS.Cons (stop, list_to_stream_rec tl 0.))))
+  in list_to_stream_rec lst 0.;;
 
 (*......................................................................
 Write a function pair that merges two event streams. Events that happen
 earlier in time should appear earlier in the merged stream.
 ......................................................................*)
+let change_times (first : event) (second : event) (timeDif : float) : event =
+  match (if timeDif <= 0. then second else first) with
+  | Stop (_ , pt) -> Stop (timeDif, pt)
+  | Tone (_, pt, vol) -> Tone (timeDif, pt, vol)
+
+
 let rec pair (a : event NLS.stream) (b : event NLS.stream)
            : event NLS.stream =
-  failwith "pair not implemented"
+  let a1, b1 = NLS.head a, NLS.head b in
+  let timeDif = time_of_event a1 -. time_of_event b1 in
+  if time_of_event a1 < time_of_event b1
+  then
+    let b2 = change_times a1 b1 timeDif in
+    let newB = lazy (NLS.Cons (b2, NLS.tail b)) in
+    lazy (NLS.Cons (a1, pair (NLS.tail a) newB))
+  else
+    let a2 = change_times b1 a1 timeDif in
+    let newA = lazy (NLS.Cons (a2, NLS.tail a)) in
+    lazy (NLS.Cons (b1, pair (NLS.tail b) newA))
+
 
 (*......................................................................
 Write a function transpose that takes an event stream and moves each pitch
 up by half_steps pitches. Note that half_steps can be negative, but
 this case is particularly difficult to reason about so we've implemented
-it for you. 
+it for you.
 ......................................................................*)
 let transpose_pitch ((p, oct) : pitch) (half_steps : int) : pitch =
   let newp = (p_to_int p) + half_steps in
@@ -175,22 +200,27 @@ let transpose_pitch ((p, oct) : pitch) (half_steps : int) : pitch =
       else (int_to_p (newp mod 12 + 12), oct - 1 + (newp / 12))
     else (int_to_p (newp mod 12), oct + (newp / 12))
 
+let set_pitch_trp (e : event) (hs : int) : event =
+  match e with
+  | Stop (tm , pt) -> Stop(tm, transpose_pitch pt hs)
+  | Tone (tm, pt, vol) -> Tone (tm, transpose_pitch pt hs, vol)
+
 let transpose (str : event NLS.stream) (half_steps : int)
             : event NLS.stream =
-    failwith "transpose not implemented"
+    NLS.smap (fun e -> set_pitch_trp e half_steps) str
 
 (*......................................................................
-The functions below may be useful for quickly creating notes to 
+The functions below may be useful for quickly creating notes to
 test and play with.
 ......................................................................*)
 
 (* quarter -- given a pitch, makes a note that is a quarter of a
    measure long *)
-let quarter (pt : pitch) : obj = Note(pt, 0.25, 60);; 
+let quarter (pt : pitch) : obj = Note(pt, 0.25, 60);;
 
 (* eighth -- given a pitch, makes a note that is an eighth of a
    measure long *)
-let eighth (pt : pitch) : obj = Note(pt, 0.125, 60);; 
+let eighth (pt : pitch) : obj = Note(pt, 0.125, 60);;
 
 (*......................................................................
 Now look what we can do. Uncomment these lines when you're done
@@ -200,17 +230,17 @@ Start off with some scales. We've done these for you. You can listen
 to it by opening the file "scale.mid".
 ......................................................................*)
 
-(*
+
 let scale1 = list_to_stream (List.map quarter
-                                      [(C,3); (D,3); (E,3); (F,3); 
+                                      [(C,3); (D,3); (E,3); (F,3);
                                        (G,3); (A,3); (B,3); (C,4)]);;
 
-let scale2 = transpose scale1 7;; 
+let scale2 = transpose scale1 7;;
 
-let scales = pair scale1 scale2;; 
+let scales = pair scale1 scale2;;
 
-output_midi "scale.mid" (stream_to_hex 32 scales);; 
- *)
+(* output_midi "scale.mid" (stream_to_hex 32 scales);; *)
+
 
 (*......................................................................
 Then with just three lists provided after this comment and and the
@@ -224,60 +254,61 @@ streams bass and melody. Uncomment the definitions above and the lines
 below when you're done. Run the program and open "canon.mid" to hear
 the beautiful music.
 ......................................................................*)
-(*
-let bass = list_to_stream
-              (List.map quarter [(D, 3); (A, 2); (B, 2); (Gb, 2); 
-                                 (G, 2); (D, 2); (G, 2); (A, 2)]) ;; 
 
-let slow = [(Gb, 4); (E, 4); (D, 4); (Db, 4); 
+let bass = list_to_stream
+              (List.map quarter [(D, 3); (A, 2); (B, 2); (Gb, 2);
+                                 (G, 2); (D, 2); (G, 2); (A, 2)]) ;;
+let slow = [(Gb, 4); (E, 4); (D, 4); (Db, 4);
             (B, 3); (A, 3); (B, 3); (Db, 4);
             (D, 4); (Db, 4); (B, 3); (A, 3);
             (G, 3); (Gb, 3); (G, 3); (E, 3)] ;;
 
 let fast = [(D, 3); (Gb, 3); (A, 3); (G, 3);
-            (Gb, 3); (D, 3); (Gb, 3); (E, 3); 
+            (Gb, 3); (D, 3); (Gb, 3); (E, 3);
             (D, 3); (B, 2); (D, 3); (A, 3);
-            (G, 3); (B, 3); (A, 3); (G, 3)] ;; 
+            (G, 3); (B, 3); (A, 3); (G, 3)] ;;
 
 let melody = list_to_stream ((List.map quarter slow)
                              @ (List.map eighth fast));;
 
-let canon = failwith "canon not implemented";; 
+
+(*
+let canon = failwith "canon not implemented";;
 
 output_midi "canon.mid" (stream_to_hex 176 canon);;
 *)
 
 (*......................................................................
 Four more streams of music for you to play with. Try overlaying them all
-and outputting it as a midi file. You can also make your own music here. 
+and outputting it as a midi file. You can also make your own music here.
 ......................................................................*)
 (*
 let part1 = list_to_stream
-              [Rest 0.5;  Note((D, 4), 0.75, 60);  
-               Note((E, 4), 0.375, 60); Note((D, 4), 0.125, 60);  
-               Note((B, 3), 0.25, 60); Note((Gb, 3), 0.1875, 60);  
-               Note((G, 3), 0.0625, 60)];; 
-  
+              [Rest 0.5;  Note((D, 4), 0.75, 60);
+               Note((E, 4), 0.375, 60); Note((D, 4), 0.125, 60);
+               Note((B, 3), 0.25, 60); Note((Gb, 3), 0.1875, 60);
+               Note((G, 3), 0.0625, 60)];;
+
 let part2 = list_to_stream
-              [Note((G, 3), 0.1875, 60); Note((A, 3), 0.0625, 60); 
-               Note((B, 3), 0.375, 60); Note((A, 3), 0.1875, 60); 
-               Note((B, 3), 0.0625, 60); Note((C, 4), 0.5, 60); 
-               Note((B, 3), 0.5, 60)];; 
+              [Note((G, 3), 0.1875, 60); Note((A, 3), 0.0625, 60);
+               Note((B, 3), 0.375, 60); Note((A, 3), 0.1875, 60);
+               Note((B, 3), 0.0625, 60); Note((C, 4), 0.5, 60);
+               Note((B, 3), 0.5, 60)];;
 
 let part3 = list_to_stream
-              [Note((G, 3), 1., 60); Note((G, 3), 0.5, 60); 
+              [Note((G, 3), 1., 60); Note((G, 3), 0.5, 60);
                Note((E, 3), 0.1875, 60);
-               Note((Gb, 3), 0.0625, 60); Note((G, 3), 0.25, 60); 
+               Note((Gb, 3), 0.0625, 60); Note((G, 3), 0.25, 60);
                Note((E, 3), 0.25, 60)];;
 
 let part4 = list_to_stream
-              [Rest(0.25); Note((G, 3), 0.25, 60); 
+              [Rest(0.25); Note((G, 3), 0.25, 60);
                Note((Gb, 3), 0.25, 60); Note((E, 3), 0.375, 60);
                Note((D, 3), 0.125, 60); Note((C, 3), 0.125, 60);
                Note((B, 2), 0.125, 60); Note((A, 2), 0.25, 60);
                Note((E, 3), 0.375, 60); Note((D, 3), 0.125, 60)];;
  *)
-                         
+
 (*......................................................................
 Time estimate
 
