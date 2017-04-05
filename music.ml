@@ -167,7 +167,7 @@ Write a function pair that merges two event streams. Events that happen
 earlier in time should appear earlier in the merged stream.
 ......................................................................*)
 let change_times (first : event) (second : event) (timeDif : float) : event =
-  match (if timeDif <= 0. then second else first) with
+  match second with
   | Stop (_ , pt) -> Stop (timeDif, pt)
   | Tone (_, pt, vol) -> Tone (timeDif, pt, vol)
 
@@ -176,16 +176,15 @@ let rec pair (a : event NLS.stream) (b : event NLS.stream)
            : event NLS.stream =
   let a1, b1 = NLS.head a, NLS.head b in
   let timeDif = time_of_event a1 -. time_of_event b1 in
-  if time_of_event a1 < time_of_event b1
+  if timeDif <= 0.
   then
-    let b2 = change_times a1 b1 timeDif in
+    let b2 = change_times a1 b1 (timeDif *. -1.) in
     let newB = lazy (NLS.Cons (b2, NLS.tail b)) in
     lazy (NLS.Cons (a1, pair (NLS.tail a) newB))
   else
     let a2 = change_times b1 a1 timeDif in
     let newA = lazy (NLS.Cons (a2, NLS.tail a)) in
     lazy (NLS.Cons (b1, pair (NLS.tail b) newA))
-
 
 (*......................................................................
 Write a function transpose that takes an event stream and moves each pitch
@@ -272,9 +271,16 @@ let melody = list_to_stream ((List.map quarter slow)
                              @ (List.map eighth fast));;
 
 
-(*
-let canon = failwith "canon not implemented";;
+let m1 = shift_start 2. melody
 
+let canon =
+  let m1 = shift_start 2. melody in
+  let m2 = shift_start 4. melody in
+  let m3 = shift_start 6. melody in
+  let mlist = [m1; m2; m3] in
+  List.fold_right (fun m r -> pair m r) mlist bass;;
+
+(*
 output_midi "canon.mid" (stream_to_hex 176 canon);;
 *)
 
@@ -282,7 +288,7 @@ output_midi "canon.mid" (stream_to_hex 176 canon);;
 Four more streams of music for you to play with. Try overlaying them all
 and outputting it as a midi file. You can also make your own music here.
 ......................................................................*)
-(*
+
 let part1 = list_to_stream
               [Rest 0.5;  Note((D, 4), 0.75, 60);
                Note((E, 4), 0.375, 60); Note((D, 4), 0.125, 60);
@@ -307,8 +313,8 @@ let part4 = list_to_stream
                Note((D, 3), 0.125, 60); Note((C, 3), 0.125, 60);
                Note((B, 2), 0.125, 60); Note((A, 2), 0.25, 60);
                Note((E, 3), 0.375, 60); Note((D, 3), 0.125, 60)];;
- *)
 
+let s1 = pair part1 part2
 (*......................................................................
 Time estimate
 
