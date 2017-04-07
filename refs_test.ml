@@ -46,7 +46,10 @@ let test_flatten () =
   let lstRef = ref (Cons (5, ref Nil)) in
   let lst1 = Cons(1, ref (Cons (1, lstRef))) in
   lstRef := lst1;
+  assert (has_cycle lst1);
   flatten lst1;
+  assert (not(has_cycle lst1));
+  assert (lst1 = Cons(1, ref (Cons (1, ref Nil))));
   print_endline "Passed test flatten"
 
 let _ =
