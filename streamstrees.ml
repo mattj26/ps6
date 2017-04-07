@@ -244,7 +244,8 @@ with 0. For example:
 - : int list = [0; 1; 2; 3; 4; 5; 6; 7; 8; 9]
 ......................................................................*)
 let rec tree_nats : int tree =
-   lazy (Node (0, [tmap (fun x -> x * 3 + 5) tree_nats; tmap (fun x -> x * 2 + 2) tree_nats]))
+    let lev = levels 1 in
+   lazy (Node (0, [tmap2 ( fun x y -> x * y + 1) tree_nats lev; tmap2 (fun x y-> x * y + 2) tree_nats lev]))
 
 (*======================================================================
 Time estimate
