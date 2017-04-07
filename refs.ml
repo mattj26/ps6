@@ -42,6 +42,8 @@ let flatten (lst : 'a mlist) : unit =
 Problem 3: Write mlength, which nondestructively finds the number of
 nodes in a mutable list that may have cycles.
 ......................................................................*)
+(*Using List.memq gave deceptive results so I had to rewrite a
+  solution using List.mem*)
 let mlength (lst : 'a mlist) : int =
   let rec inner_length vis r =
   match !r with
