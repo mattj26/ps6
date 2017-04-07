@@ -171,7 +171,8 @@ to corresponding nodes in t1 and t2, which must have the same
 let rec tmap2 (f : 'a -> 'b -> 'c)
               (t1 : 'a tree) (t2 : 'b tree)
             : 'c tree =
-  lazy ( Node (f (node t1) (node t2), List.map2 (tmap2 f) (children t1) (children t2) ));;
+  lazy ( Node (f (node t1) (node t2),
+    List.map2 (tmap2 f) (children t1) (children t2) ));;
 
 (*......................................................................
 bfenumerate tslist -- Returns a LazyStreams.stream of the nodes in the

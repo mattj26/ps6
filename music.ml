@@ -150,7 +150,9 @@ list but keep the original list around as lst. Both need to be recursive,
 since you will call both the inner and outer functions at some point.
 ......................................................................*)
 let rec list_to_stream (lst : obj list) : event NLS.stream =
-  let rec list_to_stream_rec (nlst: obj list) (rstTime : float) : event NLS.stream =
+  let rec list_to_stream_rec (nlst: obj list)
+                             (rstTime : float)
+                           : event NLS.stream =
     match nlst with
     | [] -> list_to_stream lst
     | hd::tl ->
@@ -159,14 +161,15 @@ let rec list_to_stream (lst : obj list) : event NLS.stream =
         | Note (pt, dur, vol) ->
             let tone = Tone (rstTime, pt, vol) in
             let stop = Stop (dur, pt) in
-            lazy ( NLS.Cons (tone, lazy (NLS.Cons (stop, list_to_stream_rec tl 0.))))
+            lazy ( NLS.Cons (tone,
+              lazy (NLS.Cons (stop, list_to_stream_rec tl 0.))))
   in list_to_stream_rec lst 0.;;
 
 (*......................................................................
 Write a function pair that merges two event streams. Events that happen
 earlier in time should appear earlier in the merged stream.
 ......................................................................*)
-let change_times (first : event) (second : event) (timeDif : float) : event =
+let change_times (second : event) (timeDif : float) : event =
   match second with
   | Stop (_ , pt) -> Stop (timeDif, pt)
   | Tone (_, pt, vol) -> Tone (timeDif, pt, vol)
@@ -178,11 +181,11 @@ let rec pair (a : event NLS.stream) (b : event NLS.stream)
   let timeDif = time_of_event a1 -. time_of_event b1 in
   if timeDif <= 0.
   then
-    let b2 = change_times a1 b1 (timeDif *. -1.) in
+    let b2 = change_times b1 (timeDif *. -1.) in
     let newB = lazy (NLS.Cons (b2, NLS.tail b)) in
     lazy (NLS.Cons (a1, pair (NLS.tail a) newB))
   else
-    let a2 = change_times b1 a1 timeDif in
+    let a2 = change_times a1 timeDif in
     let newA = lazy (NLS.Cons (a2, NLS.tail a)) in
     lazy (NLS.Cons (b1, pair (NLS.tail b) newA))
 
