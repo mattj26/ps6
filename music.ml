@@ -274,7 +274,6 @@ let melody = list_to_stream ((List.map quarter slow)
                              @ (List.map eighth fast));;
 
 
-let m1 = shift_start 2. melody
 
 let canon =
   let m1 = shift_start 2. melody in
