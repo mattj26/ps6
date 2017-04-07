@@ -35,7 +35,7 @@ Problem 2: Write a function flatten that flattens a list (removes its
 cycles if it has any) destructively. Again, you may want a recursive
 helper function and you shouldn't worry about space.
 ......................................................................*)
-let flatten2 (lst : 'a mlist) : unit =
+let flatten (lst : 'a mlist) : unit =
   list_iter [] (ref lst) (fun _ -> ()) (fun x n _ -> n := Cons (x, ref Nil) )
 
 (*......................................................................
@@ -43,8 +43,14 @@ Problem 3: Write mlength, which nondestructively finds the number of
 nodes in a mutable list that may have cycles.
 ......................................................................*)
 let mlength (lst : 'a mlist) : int =
-  list_iter [] (ref lst) (fun ns -> List.length ns)
-  (fun _ _ ns -> (List.length ns) - 1 )
+  let rec inner_length vis r =
+  match !r with
+  | Nil -> List.length vis
+  | Cons (_, y) ->
+      if List.mem r vis
+      then List.length vis
+      else inner_length (r::vis) y in
+  inner_length [] (ref lst)
 
 
 
@@ -59,4 +65,4 @@ on average, not in total).  We care about your responses and will use
 them to help guide us in creating future assignments.
 ......................................................................*)
 
-let minutes_spent_on_part () : int = failwith "not provided" ;;
+let minutes_spent_on_part () : int = 150 ;;
